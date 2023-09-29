@@ -34,7 +34,7 @@ class CuraEngineOnlyFansConan(ConanFile):
     }
 
     def set_version(self):
-        if not self.version:
+        if not self.version or self.version == 'main':
             self.version = "0.1.0-alpha"
 
     @property
