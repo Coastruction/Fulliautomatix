@@ -74,7 +74,6 @@ jobs:
       - name: Install Python requirements for runner
         run: |
           pip install -r .github/workflows/requirements-conan-package.txt
-          pip install ninja
 
       - name: Cache Conan local repository packages (Powershell)
         uses: actions/cache@v3
@@ -87,8 +86,8 @@ jobs:
 
       - name: Get Conan configuration
         run: |
-          conan config install https://github.com/Ultimaker/conan-config.git
-          conan config install https://github.com/Ultimaker/conan-config.git -a "-b runner/${{ runner.os }}/${{ runner.arch }}"
+          conan config install https://github.com/jellespijker/conan-config.git
+          conan config install https://github.com/jellespijker/conan-config.git -a "-b runner/${{ runner.os }}/${{ runner.arch }}"
 
       - name: Create the default Conan profile
         run: conan profile new default --detect --force
