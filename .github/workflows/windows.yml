@@ -64,6 +64,8 @@ jobs:
         with:
           ref: ${{ inputs.plugin_git_version }}
 
+      - uses: seanmiddleditch/gha-setup-ninja@master
+
       - name: Setup Python and pip
         uses: actions/setup-python@v4
         with:
