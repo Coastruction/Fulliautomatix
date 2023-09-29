@@ -92,6 +92,8 @@ jobs:
       - name: Use Conan download cache (Powershell)
         run: conan config set storage.download_cache="C:\Users\runneradmin\.conan\conan_download_cache"
 
+      - uses: seanmiddleditch/gha-setup-ninja@master
+
       - name: Create the Packages (Powershell)
         run: |
           conan install . ${{ inputs.conan_args }} --build=missing --update -s curaengine_onlyfans:compiler.cppstd=20
