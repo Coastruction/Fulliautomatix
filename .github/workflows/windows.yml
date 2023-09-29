@@ -52,8 +52,6 @@ on:
         type: string
 
 env:
-  CONAN_LOGIN_USERNAME_CURA: ${{ secrets.CONAN_USER }}
-  CONAN_PASSWORD_CURA: ${{ secrets.CONAN_PASS }}
   PLUGIN_GIT_VERSION: ${{ inputs.plugin_git_version }}
 
 jobs:

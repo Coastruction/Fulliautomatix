@@ -6,7 +6,7 @@ on:
     inputs:
       plugin_git_version:
         description: 'Plugin git Version'
-        default: 'HEAD'
+        default: ''
         required: true
         type: string
       conan_args:
