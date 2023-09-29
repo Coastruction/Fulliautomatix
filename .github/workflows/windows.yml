@@ -85,11 +85,13 @@ jobs:
             C:\Users\runneradmin\.conan\conan_download_cache
           key: conan-${{ runner.os }}-${{ runner.arch }}-installer-cache
 
+      - name: Get Conan configuration
+        run: |
+          conan config install https://github.com/Ultimaker/conan-config.git
+          conan config install https://github.com/Ultimaker/conan-config.git -a "-b runner/${{ runner.os }}/${{ runner.arch }}"
+
       - name: Create the default Conan profile
         run: conan profile new default --detect --force
-
-      - name: Get Conan configuration
-        run: conan config install https://github.com/Ultimaker/conan-config.git
 
       - name: Use Conan download cache (Powershell)
         run: conan config set storage.download_cache="C:\Users\runneradmin\.conan\conan_download_cache"

@@ -105,11 +105,13 @@ jobs:
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 12
           sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 12
 
+      - name: Get Conan configuration
+        run: |
+          conan config install https://github.com/Ultimaker/conan-config.git
+          conan config install https://github.com/Ultimaker/conan-config.git -a "-b runner/${{ runner.os }}/${{ runner.arch }}"
+
       - name: Create the default Conan profile
         run: conan profile new default --detect --force
-
-      - name: Get Conan configuration
-        run: conan config install https://github.com/Ultimaker/conan-config.git
 
       - name: Use Conan download cache (Bash)
         run: conan config set storage.download_cache="$HOME/.conan/conan_download_cache"
