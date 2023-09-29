@@ -72,7 +72,7 @@ class CuraEngineOnlyFansConan(ConanFile):
         with open(os.path.join(self.source_folder, "templates", "include", "plugin", "cmdline.h.jinja"), "r") as f:
             template = Template(f.read())
 
-        version = Version(self.version)
+        version = Version(self.version if self.version != 'main' else "0.1.0-alpha")
         with open(os.path.join(self.source_folder, "include", "plugin", "cmdline.h"), "w") as f:
             f.write(template.render(cura_plugin_name=self._cura_plugin_name.lower(),
                                     description=self.description,
@@ -83,7 +83,7 @@ class CuraEngineOnlyFansConan(ConanFile):
         with open(os.path.join(self.source_folder, "templates", "cura_plugin", "constants.py.jinja"), "r") as f:
             template = Template(f.read())
 
-        version = Version(self.version)
+        version = Version(self.version if self.version != 'main' else "0.1.0-alpha")
         with open(os.path.join(self.source_folder, self._cura_plugin_name, "constants.py"), "w") as f:
             f.write(template.render(cura_plugin_name=self._cura_plugin_name,
                                     version=f"{version.major}.{version.minor}.{version.patch}",
@@ -94,7 +94,7 @@ class CuraEngineOnlyFansConan(ConanFile):
         with open(os.path.join(self.source_folder, "templates", "cura_plugin", "plugin.json.jinja"), "r") as f:
             template = Template(f.read())
 
-        version = Version(self.version)
+        version = Version(self.version if self.version != 'main' else "0.1.0-alpha")
         with open(os.path.join(self.source_folder, self._cura_plugin_name, "plugin.json"), "w") as f:
             f.write(template.render(cura_plugin_name=self._cura_plugin_name,
                                     author=self.author,
@@ -107,7 +107,7 @@ class CuraEngineOnlyFansConan(ConanFile):
         with open(os.path.join(self.source_folder, "templates", "cura_plugin", "package.json.jinja"), "r") as f:
             template = Template(f.read())
 
-        version = Version(self.version)
+        version = Version(self.version if self.version != 'main' else "0.1.0-alpha")
         with open(os.path.join(self.source_folder, self._cura_plugin_name, "package.json"), "w") as f:
             f.write(template.render(author_id=self.author.lower(),
                                     author=self.author,
