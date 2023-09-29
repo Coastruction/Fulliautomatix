@@ -1,0 +1,18 @@
+{
+  "only_fans": {
+    "label": "Only Fans",
+    "type": "category",
+    "description": "Only Fans plugin",
+    "icon": "Fan",
+    "children": {
+      "onlyfans_enabled": {
+        "label": "OnlyFans enabled",
+        "description": "Enable OnlyFans postprocessing",
+        "type": "bool",
+        "default_value": false,
+        "settable_per_mesh": false,
+        "settable_per_extruder": false
+      }
+    }
+  }
+}
