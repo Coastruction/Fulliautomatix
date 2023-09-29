@@ -1,12 +1,12 @@
 name: Create CuraPackage
-run-name: ${{ inputs.plugin_conan_version }} by @${{ github.actor }}
+run-name: ${{ inputs.plugin_git_version }} by @${{ github.actor }}
 
 on:
   workflow_dispatch:
     inputs:
-      plugin_conan_version:
-        description: 'Plugin Conan Version'
-        default: 'curaengine_onlyfans/latest@ultimaker/testing'
+      plugin_git_version:
+        description: 'Plugin git Version'
+        default: 'HEAD'
         required: true
         type: string
       conan_args:
@@ -19,7 +19,7 @@ jobs:
   windows-installer:
     uses: ./.github/workflows/windows.yml
     with:
-      plugin_conan_version: ${{ inputs.plugin_conan_version }}
+      plugin_git_version: ${{ inputs.plugin_git_version }}
       conan_args: ${{ inputs.conan_args }}
       architecture: X64
       operating_system: windows-2022
@@ -28,7 +28,7 @@ jobs:
   linux-modern-installer:
     uses: ./.github/workflows/linux.yml
     with:
-      plugin_conan_version: ${{ inputs.plugin_conan_version }}
+      plugin_git_version: ${{ inputs.plugin_git_version }}
       conan_args: ${{ inputs.conan_args }}
       architecture: X64
       operating_system: ubuntu-22.04
@@ -37,7 +37,7 @@ jobs:
   macos-installer:
     uses: ./.github/workflows/macos.yml
     with:
-      plugin_conan_version: ${{ inputs.plugin_conan_version }}
+      plugin_git_version: ${{ inputs.plugin_git_version }}
       conan_args: ${{ inputs.conan_args }}
       architecture: X64
       operating_system: macos-11.0
@@ -46,7 +46,7 @@ jobs:
   macos-arm-installer:
     uses: ./.github/workflows/macos.yml
     with:
-      plugin_conan_version: ${{ inputs.plugin_conan_version }}
+      plugin_git_version: ${{ inputs.plugin_git_version }}
       conan_args: ${{ inputs.conan_args }}
       architecture: ARM64
       operating_system: self-hosted
@@ -63,7 +63,7 @@ jobs:
       - name: Download the run info
         uses: actions/download-artifact@v2
         with:
-          name: macos-run-info
+          name: linux-run-info
 
       - name: Set the run info as environment variables
         run: |
@@ -72,39 +72,39 @@ jobs:
       - name: Download the Cura plugin
         uses: actions/download-artifact@v2
         with:
-          name: macos-cura-plugin
+          name: linux-cura-plugin
           path: cura-plugin
 
       - name: Download linux modern binary artifacts
         uses: actions/download-artifact@v2
         with:
           name: Linux-X64
-          path: cura-plugin/CuraEngineGradualFlow/x86_64/Linux
+          path: cura-plugin/CuraEngineOnlyFans/x86_64/Linux
 
       - name: Download mac x64 binary artifacts
         uses: actions/download-artifact@v2
         with:
           name: macOS-X64
-          path: cura-plugin/CuraEngineGradualFlow/x86_64/Darwin
+          path: cura-plugin/CuraEngineOnlyFans/x86_64/Darwin
 
       - name: Download mac arm binaries artifacts
         uses: actions/download-artifact@v2
         with:
           name: macOS-ARM64
-          path: cura-plugin/CuraEngineGradualFlow/arm64/Darwin
+          path: cura-plugin/CuraEngineOnlyFans/arm64/Darwin
 
       - name: Download win X64 binaries artifacts
         uses: actions/download-artifact@v2
         with:
           name: Windows-X64
-          path: cura-plugin/CuraEngineGradualFlow/x86_64/Windows
+          path: cura-plugin/CuraEngineOnlyFans/x86_64/Windows
 
       - name: Upload the Cura plugin source
         uses: actions/upload-artifact@v3
         with:
           name: cura-plugin
           path: |
-            cura-plugin/CuraEngineGradualFlow/**/*
+            cura-plugin/CuraEngineOnlyFans/**/*
           retention-days: 5
 
       - uses: fieldOfView/cura-plugin-packager-action@main

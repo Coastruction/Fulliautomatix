@@ -1,12 +1,12 @@
 name: Linux Installer
-run-name: ${{ inputs.plugin_conan_version }} for Linux-${{ inputs.architecture }} by @${{ github.actor }}
+run-name: ${{ inputs.PLUGIN_GIT_VERSION }} for Linux-${{ inputs.architecture }} by @${{ github.actor }}
 
 on:
   workflow_dispatch:
     inputs:
-      plugin_conan_version:
-        description: 'Plugin Conan Version'
-        default: 'curaengine_onlyfans/latest@ultimaker/testing'
+      plugin_git_version:
+        description: 'Plugin git Version'
+        default: ''
         required: true
         type: string
       conan_args:
@@ -31,9 +31,9 @@ on:
           - ubuntu-20.04
   workflow_call:
     inputs:
-      plugin_conan_version:
-        description: 'Plugin Conan Version'
-        default: 'curaengine_onlyfans/latest@ultimaker/testing'
+      plugin_git_version:
+        description: 'Plugin git Version'
+        default: ''
         required: true
         type: string
       conan_args:
@@ -55,7 +55,7 @@ on:
 env:
   CONAN_LOGIN_USERNAME_CURA: ${{ secrets.CONAN_USER }}
   CONAN_PASSWORD_CURA: ${{ secrets.CONAN_PASS }}
-  PLUGIN_CONAN_VERSION: ${{ inputs.plugin_conan_version }}
+  PLUGIN_GIT_VERSION: ${{ inputs.plugin_git_version }}
 
 jobs:
   cura-installer-create:
@@ -64,6 +64,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.plugin_git_version }}
 
       - name: Setup Python and pip
         uses: actions/setup-python@v4
@@ -114,20 +116,18 @@ jobs:
       - name: Use Conan download cache (Bash)
         run: conan config set storage.download_cache="$HOME/.conan/conan_download_cache"
 
-      - name: Create the Packages (Bash)
-        run: conan install $PLUGIN_CONAN_VERSION ${{ inputs.conan_args }} --build=missing --update -if plugin_inst
-
-      - name: Upload the Package(s)
-        if: always()
+      - name: Create the Packages (Powershell)
         run: |
-          conan upload "*" -r cura --all -c
+          conan install . ${{ inputs.conan_args }} --build=missing --update
+          cmake --preset release
+          cmake --build --preset release
 
       - name: Upload the binary
         uses: actions/upload-artifact@v3
         with:
           name: ${{ runner.os }}-${{ runner.arch }}
           path: |
-            plugin_inst/curaengine_plugin_gradual_flow
+            build/Release/curaengine_onlyfans
           retention-days: 5
 
       - name: Upload the cura plugin
@@ -135,7 +135,7 @@ jobs:
         with:
           name: linux-cura-plugin
           path: |
-            plugin_inst/CuraEngineGradualFlow/**/*
+            CuraEngineOnlyFans/**/*
           retention-days: 5
 
       - name: Write the run info
@@ -143,7 +143,7 @@ jobs:
         run: |
           import os
           with open("run_info.sh", "w") as f:
-              f.writelines(f'echo "PLUGIN_CONAN_VERSION={os.environ["PLUGIN_CONAN_VERSION"]}" >> $GITHUB_ENV\n')
+              f.writelines(f'echo "PLUGIN_GIT_VERSION={os.environ["PLUGIN_GIT_VERSION"]}" >> $GITHUB_ENV\n')
 
       - name: Upload the run info
         uses: actions/upload-artifact@v3
@@ -152,16 +152,3 @@ jobs:
           path: |
             run_info.sh
           retention-days: 5
-
-  notify-export:
-    if: ${{ always() }}
-    needs: [ cura-installer-create ]
-
-    uses: ultimaker/cura/.github/workflows/notify.yml@main
-    with:
-      success: ${{ contains(join(needs.*.result, ','), 'success') }}
-      success_title: "Create the Cura distributions"
-      success_body: "Installers for ${{ inputs.plugin_conan_version }}"
-      failure_title: "Failed to create the Cura distributions"
-      failure_body: "Failed to create at least 1 installer for ${{ inputs.plugin_conan_version }}"
-    secrets: inherit
