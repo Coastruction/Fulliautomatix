@@ -64,8 +64,6 @@ jobs:
         with:
           ref: ${{ inputs.plugin_git_version }}
 
-      - uses: seanmiddleditch/gha-setup-ninja@master
-
       - name: Setup Python and pip
         uses: actions/setup-python@v4
         with:
@@ -96,7 +94,7 @@ jobs:
 
       - name: Create the Packages (Powershell)
         run: |
-          conan install . ${{ inputs.conan_args }} --build=missing --update
+          conan install . ${{ inputs.conan_args }} --build=missing --update -s curaengine_onlyfans:compiler.cppstd=20
           cmake --preset release
           cmake --build --preset release
 
