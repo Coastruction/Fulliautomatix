@@ -21,7 +21,7 @@ set(HDRS include/plugin/broadcast.h
 
 add_library(curaengine_onlyfans_lib INTERFACE ${HDRS})
 use_threads(curaengine_onlyfans_lib)
-target_link_libraries(curaengine_onlyfans_lib INTERFACE curaengine_onlyfans_lib curaengine_grpc_definitions::curaengine_grpc_definitions ctre::ctre asio-grpc::asio-grpc protobuf::libprotobuf boost::boost spdlog::spdlog docopt_s range-v3::range-v3 neargye-semver::neargye-semver)
+target_link_libraries(curaengine_onlyfans_lib INTERFACE curaengine_grpc_definitions::curaengine_grpc_definitions ctre::ctre asio-grpc::asio-grpc protobuf::libprotobuf boost::boost spdlog::spdlog docopt_s range-v3::range-v3 neargye-semver::neargye-semver)
 target_include_directories(curaengine_onlyfans_lib
         INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
