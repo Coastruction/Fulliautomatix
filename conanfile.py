@@ -156,7 +156,6 @@ class CuraEngineOnlyFansConan(ConanFile):
         self.requires("neargye-semver/0.3.0")
         self.requires("grpc/1.54.3")
         self.requires("curaengine_grpc_definitions/latest@ultimaker/testing")
-        self.requires("gtest/1.14.0")
 
     def build_requirements(self):
         self.test_requires("standardprojectsettings/[>=0.1.0]@ultimaker/stable")
