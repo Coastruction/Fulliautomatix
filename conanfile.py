@@ -146,7 +146,7 @@ class CuraEngineOnlyFansConan(ConanFile):
 
     def requirements(self):
         self.requires("protobuf/3.21.9")
-        self.requires("boost/1.82.0")
+        self.requires("boost/1.83.0")
         self.requires("asio-grpc/2.6.0")
         self.requires("openssl/1.1.1l")
         self.requires("spdlog/1.10.0")
@@ -154,7 +154,8 @@ class CuraEngineOnlyFansConan(ConanFile):
         self.requires("range-v3/0.12.0")
         self.requires("ctre/3.7.2")
         self.requires("neargye-semver/0.3.0")
-        self.requires("curaengine_grpc_definitions/(latest)@ultimaker/testing")
+        self.requires("grpc/1.54.3")
+        self.requires("curaengine_grpc_definitions/latest@ultimaker/testing")
 
     def build_requirements(self):
         self.test_requires("standardprojectsettings/[>=0.1.0]@ultimaker/stable")

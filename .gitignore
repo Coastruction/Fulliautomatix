@@ -137,3 +137,7 @@ include/plugin/cmdline.h
 CuraEngineOnlyFans/constants.py
 CuraEngineOnlyFans/plugin.json
 CuraEngineOnlyFans/package.json
+
+#Visual studio
+.vs/
+!.vs/launch.vs.json

@@ -1,0 +1,32 @@
+{
+  "version": "0.2.1",
+  "defaults": {},
+  "configurations": [
+    {
+      "type": "python",
+      "interpreter": "(default)",
+      "interpreterArguments": "",
+      "scriptArguments": "port=7856",
+      "env": {},
+      "nativeDebug": false,
+      "webBrowserUrl": "",
+      "project": "CuraEngineOnlyFans\\OnlyFans.py",
+      "projectTarget": "",
+      "name": "OnlyFans.py"
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "curaengine_onlyfans.exe",
+      "name": "curaengine_onlyfans.exe",
+      "args": [ "--port=7856" ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "test_process.exe",
+      "name": "TestProcess",
+      "args": [ "" ]
+    }
+  ]
+}
