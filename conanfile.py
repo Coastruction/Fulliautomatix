@@ -16,11 +16,11 @@ required_conan_version = ">=1.58.0 <2.0.0"
 
 class CuraEngineOnlyFansConan(ConanFile):
     name = "curaengine_onlyfans"
-    description = "CuraEngine postprocessing plugin, which filters out all GCode commands except those related to fans"
-    author = "JelleSpijker"
+    description = "Plugin for Cura to generate the G-code for Coastruction 3D cement printer "
+    author = "Andries Koopmans"
     license = ""
-    url = "https://github.com/jellespijker/CuraEngine_onlyfans"
-    homepage = "https://github.com/jellespijker"
+    url = "https://github.com/Coastruction/Fulliautomatix"
+    homepage = "https://github.com/janandries"
     topics = ("protobuf", "asio", "plugin", "curaengine", "gcode-generation", "3D-printing", "postprocess")
     package_type = "application"
     settings = "os", "arch", "compiler", "build_type"
@@ -156,6 +156,7 @@ class CuraEngineOnlyFansConan(ConanFile):
         self.requires("neargye-semver/0.3.0")
         self.requires("grpc/1.54.3")
         self.requires("curaengine_grpc_definitions/latest@ultimaker/testing")
+        self.requires("gtest/1.14.0")
 
     def build_requirements(self):
         self.test_requires("standardprojectsettings/[>=0.1.0]@ultimaker/stable")

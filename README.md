@@ -1,10 +1,26 @@
-# CuraEngine Only Fans plugin
+CuraEngine_onylfans
 
-This plugin will filter out all GCode commands except those related to fans (M106, M107, M123, M710)
+NOTE: Please note that this plugin is Experimental and adding custom infills is not possible at the moment. This plugin consist of the following licenses:
 
+    LGPLv3 front end Cura plugin.
+    BSD-4 C++ Business logic headers for the CuraEngine plugin logic
+    AGPLv3 C++ Infill generation header
 
-> Note: Most of the source files have been copied from https://github.com/Ultimaker/CuraEngine_plugin_gradual_flow these
-> are currently without a license. Since I'm part of the Cura Team working for UltiMaker I know what the license will be
-> on these files, having worked on most of them; but I also have very little patience and I wanted to write the first
-> community CuraEngine Plugin, since I'm a huge **FAN**.
-> As soon as the license have been updated from the UltiMaker repositories I will reflect the changes in this repo.
+Installation
+
+    Configure Conan Before you start, if you use conan for other (big) projects as well, it's a good idea to either switch conan-home and/or backup your existing conan configuration(s).
+
+That said, installing our config goes as follows:
+
+pip install conan==1.60
+conan config install https://github.com/ultimaker/conan-config.git
+conan profile new default --detect --force
+
+    Clone CuraEngine_plugin_infill_generate
+
+https://github.com/Ultimaker/CuraEngine_plugin_infill_generate.git
+cd CuraEngine_plugin_infill_generate
+
+    Install & Build CuraEngine (Release OR Debug)
+
+conan install . --build=missing --update -s build_type=Debug/Release
