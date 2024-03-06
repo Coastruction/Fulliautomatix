@@ -27,10 +27,46 @@
 #include <memory>
 #include <string_view>
 
+#include "process.h"
+
 namespace plugin::onlyfans
 {
 
 std::string filterLines(std::string_view layer)
+{
+    constexpr auto pattern = ctll::fixed_string{ "^(;|M106|M107|M123|M710).*$" };
+
+    //create our printer
+    //PrintHead ph(5.0, 11, 8);
+    //GCodeParser gp(ph, ph.printhead_size() * 2, 1400);
+
+
+    // Split the input string to lines
+    const std::regex rx{ R"(.*\n?)" };
+    auto lines = layer | ranges::views::tokenize(rx);
+
+    //for (const auto& line : lines)
+   // {
+        //gp.parse(line);
+    //}
+
+    // Filter the lines that match the pattern
+    auto matching_lines = lines
+                        | ranges::views::filter(
+                              [&](const std::string& line)
+                              {
+                                  return ctre::match<pattern>(line);
+                              });
+
+    std::string result;
+    for (const auto& matched_line : matching_lines)
+    {
+        result += matched_line;
+    }
+    return result;
+}
+
+std::string filterLines_OLD(std::string_view layer)
 {
     constexpr auto pattern = ctll::fixed_string{ "^(;|M106|M107|M123|M710).*$" };
 

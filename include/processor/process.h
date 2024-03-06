@@ -1,6 +1,9 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
+#include "gcode.h"
+
+
 #include <filesystem>
 #include <cmath>
 #include <fstream>
@@ -9,40 +12,214 @@
 #include <string>
 #include <vector>
 #include <exception>
+#include <bitset>
     
 const int x_size = 880 * 2; // we use a resoluation of 0.5 mm, hence the times two.
 const int y_size = 1330 * 2; // TODO make this based on the Cura print bed output (how to get this setting??)
 
-// Define the Command class
-class Command
+
+class PrintHead
 {
 public:
-    float X, Y, Z, E;
-    Command()
-        : X(0)
-        , Y(0)
-        , Z(0)
-        , E(0)
+    /**
+    *  Creates a PrintHead object according to the provided parameters
+    * @param valve_spacing - Distance between the centers of two valves
+    * @param nr_of_blocks - In how many blocks the valves are distrubuted
+    * @param nozzles_per_bloc - As the name suggests
+    * */
+    PrintHead(float valve_spacing, uint16_t nr_of_blocks, uint16_t nozzles_per_block)
+        : _valve_spacing(valve_spacing)
+        , _nr_of_blocks(nr_of_blocks)
+        , _nozzles_per_block(nozzles_per_block)
+    {};
+
+    /* returns the index and the offset of a coordinate, based on the interval */
+    void get_block_indices(float x_coordinate, int& block_index, int& block_offset)
     {
+        int valve_index = static_cast<int>(x_coordinate / _valve_spacing);
+        block_index = static_cast<int>(valve_index / _nozzles_per_block);
+        block_offset = valve_index % _nozzles_per_block;
     }
 
-    Command(float x, float y, float z, float e)
-        : X(x)
-        , Y(y)
-        , Z(z)
-        , E(e)
+    uint16_t nr_of_nozzles()
     {
+        return _nr_of_blocks * _nozzles_per_block;
     }
 
-    bool hasExtrusionValue()
+    float printhead_size()
+    {
+        return nr_of_nozzles() * _valve_spacing;
+    }
+
+private:
+    const uint16_t _nr_of_blocks;
+    const uint16_t _nozzles_per_block;
+    const float _valve_spacing;
+};
+
+// Class holding the pattern that has to be sprayed
+// can be filled with individual 'spray lines'
+// and will generate our machine specific output g-code
+// at the moment only supports 2 passes (there and back)
+class SprayPattern
+{
+public:
+    SprayPattern(PrintHead ph, uint16_t y_bed_size, uint16_t nr_passes = 2)
+        : _ph(ph)
+        , _spray_pattern_data_width(std::ceil(_ph.nr_of_nozzles() * nr_passes / 8.0))
+        , pattern(y_bed_size, std::vector<std::bitset<8>>(_spray_pattern_data_width))
+    {
+        
+    };
+
+    void add_spray_line(GCodeMove begin, GCodeMove end)
     {
         float tolerance = 1e-8;
-        if (std::fabs(E) < tolerance)
-            return true;
-        else
-            return false;
+        if (std::fabs(begin.X - end.X) > tolerance)
+        {
+            throw std::invalid_argument("Begin and end coordinates do not have the same X-value");
+        }
+
+        GCodeMove first = begin, second = end;
+        if (begin.Y > end.Y)
+        {
+            first = end;
+            second = begin;
+        }
+
+        set_valves(begin.X, first.Y, second.Y);
+    };
+
+    void set_valves(uint16_t x_coord, uint16_t y_begin_coord, uint16_t y_end_coord)
+    {
+        // first convert from coordinate to y_coord index
+        int begin_index = get_y_index(y_begin_coord);
+        int end_index = get_y_index(y_end_coord);
+
+        // also get the valve that we have to turn on/off
+        int block_index, block_offset;
+        _ph.get_block_indices(x_coord, block_index, block_offset);
+
+        for (int n = begin_index; n < end_index; n++)
+        {
+            pattern[n][block_index][block_offset] = 1;
+        }
+    }
+
+    //for now just round off the y value
+    uint16_t get_y_index(float y_coord)
+    {
+        return static_cast<int>(y_coord);
+    }
+
+    std::string GenerateGCode(){};
+    uint16_t get_y_size()
+    {
+        return pattern.size();
+    }
+
+    uint16_t get_spray_pattern_data_width()
+    {
+        return _spray_pattern_data_width;
+    }
+
+    PrintHead _ph;
+    const uint16_t _spray_pattern_data_width;
+    std::vector<std::vector<std::bitset<8>>> pattern;
+};
+
+class GCodeGenerator
+{
+public:
+
+    std::bitset<8> extractEverySecondBit(const std::bitset<8>& input1, const std::bitset<8>& input2)
+    {
+        std::bitset<8> result;
+
+        for (size_t i = 0; i < 8; i += 2)
+        {
+            result.set(i / 2, input1.test(i));
+            result.set(i / 2 + 4, input2.test(i));
+        }
+
+        return result;
+    }
+
+    //takes a vector of bitset<8> with an even number of elements
+    //and moves all even bits to the first half of the elements,
+    //and all uneven bits to the last half of the elements
+    //so 1010.1010 1010.1010 would become 0000.0000 1111.1111
+    //note that the bitset indexing when written out starts at the 
+    //last element (i.e. 10000001)
+    //                   ^      ^
+    //            index [7]    [0]
+    void interlace_and_separate(std::vector<std::bitset<8>> input)
+    {
+        if (input.size() % 2 != 0)
+        {
+            throw std::invalid_argument("Input vector must contain an even number of elements");
+        }
+
+        std::vector<std::bitset<8>> output(input.begin(), input.end());
+        for (int i; i < 8; i+=2) // process all bits in chunks of 2
+        {
+            for (int n; n < input.size() / 2; n++)
+            {
+                output[n].set(i / 2, input1.test(i));
+                result.set(i / 2 + 4, input2.test(i));
+            }
+        }
+    }
+
+    std::string generate(SprayPattern sp)
+    {
+        //step through all the entries in the pattern
+        for (auto& i : sp.pattern)
+        {
+            //get only every other bit value
+            continue;
+        }
+        //and convert the vector of bitset's to a few byte values
+        return "hello";
     }
 };
+
+/* can be fed gcode, and it will populate the Spraypattern*/
+class GCodeParser
+{
+public:
+    GCodeParser(PrintHead ph, uint16_t x_bed_size, uint16_t y_bed_size)
+        : pattern(ph, y_bed_size, x_bed_size / ph.printhead_size()){
+
+        };
+
+
+    void parse(std::string line){ 
+        try
+        {
+            auto current_move = get_g_move(line);
+            if (current_move.isExtrusionMove())
+            {
+                if (first_move_processed)
+                {
+                    pattern.add_spray_line(prev_move, current_move);
+                }
+            }
+            first_move_processed = true; 
+            prev_move = current_move;
+            
+        }
+        catch (std::invalid_argument e)
+        {
+            //not a valid G-code command aparently
+        }
+
+    }
+    bool first_move_processed = false;
+    SprayPattern pattern;
+    GCodeMove prev_move;
+};
+
 
 #define OPEN 1
 #define CLOSE 2
@@ -59,98 +236,6 @@ public:
     }
 };
 
-// Function to parse a line and extract X, Y, Z, E values
-Command parseLine(const std::string& line)
-{
-    float x = 0.0f, y = 0.0f, z = 0.0f, e = 0.0f;
-    std::istringstream iss(line);
-    std::string commandType;
-    iss >> commandType;
-    char ch;
-    while (iss >> ch)
-    {
-        if (ch == 'X')
-        {
-            iss >> x;
-        }
-        else if (ch == 'Y')
-        {
-            iss >> y;
-        }
-        else if (ch == 'Z')
-        {
-            iss >> z;
-        }
-        else if (ch == 'E')
-        {
-            iss >> e;
-        }
-    }
-    return Command(x, y, z, e);
-};
-
-/* calculates the */
-int32_t calculate_slice(int begin, int end, int lower_bound, int upper_bound)
-{
-    if (upper_bound - lower_bound > 32)
-    {
-        throw std::invalid_argument("Selected interval exceeds what fits in a 32-bit integer.");
-    }
-    if (begin > end)
-    {
-        throw std::invalid_argument("Begin index is larger then end index");
-    }
-
-    if (begin <= lower_bound)
-    {
-        begin = lower_bound;
-    }
-
-    if (end >= upper_bound)
-    {
-        end = upper_bound - 1;
-    }
-
-    int a = begin - lower_bound;
-    int b = end - lower_bound;
-
-    return pow(2.0, b) - pow(2.0, a - 1);
-}
-
-/* returns the index and the offset of a coordinate, based on the interval */
-void get_block_indices(float x_coordinate, float interval, unsigned int block_size, int& block_index, int& block_offset)
-{
-    int valve_index = static_cast<int>(x_coordinate / interval);
-
-    block_index = static_cast<int>(valve_index / block_size);
-    block_offset = valve_index % block_index;
-}
-
-void add_valve_output(Command begin, Command end, std::vector<std::vector<uint8_t>>& output_array, int number_of_nozzles)
-{
-    float tolerance = 1e-8;
-    if (std::fabs(begin.X - end.X) > tolerance)
-    {
-        throw std::invalid_argument("Begin and end coordinates do not have the same X-value");
-    }
-
-    Command first = begin, second = end;
-    if (begin.Y > end.Y)
-    {
-        first = end;
-        second = begin;
-    }
-
-    // first convert from coordinate to valve index
-    int begin_index = static_cast<int>(first.Y / 0.5);
-    int end_index = static_cast<int>(second.Y / 0.5);
-
-    // split them up according to each column of our output_array
-    for (int n = 0; n < output_array[0].size(); n++)
-    {
-        output_array[0][n] = calculate_slice(begin_index, end_index, n * 32, (n + 1) * 32);
-    }
-};
 
 int asdasd(int a)
 {
@@ -195,22 +280,22 @@ int asdasd(int a)
     // Read file line by line
     std::string line;
     bool is_extruding = false;
-    Command last_cmd;
+    GCodeMove last_cmd;
     while (std::getline(file, line))
     {
         // Check if the line starts with 'G0' or 'G1'
         if (line.substr(0, 2) == "G0" || line.substr(0, 2) == "G1")
         {
             // Parse the line and create a Command object
-            Command current_cmd = parseLine(line);
+            GCodeMove current_cmd = get_g_move(line);
 
-            if (current_cmd.hasExtrusionValue())
+            if (current_cmd.isExtrusionMove())
             {
-                add_valve_output(last_cmd, current_cmd, V_OUT, number_of_nozzles);
+                //add_valve_output(last_cmd, current_cmd, V_OUT, number_of_nozzles);
             }
         }
     }
-
+     
     // Close the file
     file.close();
 

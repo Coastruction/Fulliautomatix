@@ -26,7 +26,8 @@ set(HDRS include/plugin/broadcast.h
         include/plugin/modify.h
         include/plugin/plugin.h
         include/plugin/settings.h
-        include/processor/process.h)
+        include/processor/process.h
+        include/processor/gcode.h)
 
 add_library(curaengine_onlyfans_lib INTERFACE ${HDRS})
 use_threads(curaengine_onlyfans_lib)
@@ -37,13 +38,9 @@ target_include_directories(curaengine_onlyfans_lib
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
-
-
 add_executable(curaengine_onlyfans src/main.cpp)
 use_threads(curaengine_onlyfans)
 target_link_libraries(curaengine_onlyfans PUBLIC curaengine_onlyfans_lib)
-
-
 
 enable_testing()
 
