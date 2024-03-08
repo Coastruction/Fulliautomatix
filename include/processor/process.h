@@ -13,6 +13,7 @@
 #include <vector>
 #include <exception>
 #include <bitset>
+#include <format>
     
 const int x_size = 880 * 2; // we use a resoluation of 0.5 mm, hence the times two.
 const int y_size = 1330 * 2; // TODO make this based on the Cura print bed output (how to get this setting??)
@@ -72,6 +73,11 @@ public:
         
     };
 
+    void set_layer_nr(int layer_nr)
+    {
+        _layer_nr = layer_nr;
+    }
+
     void add_spray_line(GCodeMove begin, GCodeMove end)
     {
         float tolerance = 1e-8;
@@ -126,11 +132,67 @@ public:
     PrintHead _ph;
     const uint16_t _spray_pattern_data_width;
     std::vector<std::vector<std::bitset<8>>> pattern;
+    int _layer_nr = -1;
 };
 
 class GCodeGenerator
 {
 public:
+    const int Y_INITIAL_POSITION = 92;
+    const int Y_FEED_RATE = 8000;
+
+    const int N_NOZZLES = 88;
+    const int N_NOZZLES_PER_MANIFOLD = 8;
+    const int N_PASSES = 2;
+    const int PRINTABLE_AREA = (880, 1424);
+    const int RESOLUTION = N_NOZZLES * N_PASSES;
+    const int RESOLUTION_MM = 5;
+
+    std::string print_begin_cmd(int NUMBER_OF_LAYERS)
+    {
+        return std::format(
+            "SET_PRINT_STATS_INFO TOTAL_LAYER={}\n"
+            "G28 X Y SET_FIRST_PASS G4 P3000; wait for servo\n"
+            "VALVES_SET VALUES=0,0,0,0,0,0,0,0,0,0,0\n"
+            "VALVES_ENABLE ; change to VALVES_DISABLE to do run without valves active\n",
+            NUMBER_OF_LAYERS);
+    }
+
+    std::string print_end_cmd(int NUMBER_OF_LAYERS)
+    {
+        return std::format(
+            "; total layers count = {}\n", NUMBER_OF_LAYERS);
+    }
+
+    std::string layer_begin_cmd(int layer_idx)
+    {
+        return std::format(
+            ";Layer{}\n"
+            "SET_PRINT_STATS_INFO CURRENT_LAYER = {}\n"
+            "SET_FIRST_PASS\n"
+            "Z_ONE_LAYER\n"
+            "FILL_HOPPER_UNTIL_FULL\n"
+            "PAUSE_PRINTER; wait for button press\n"
+            "DEPOSIT_ONE_LAYER\n", layer_idx+1, layer_idx+1);
+    }
+    
+    std::string layer_return_cmd(int y_pos)
+    {
+        return std::format(
+            "G1 Y{}\n"
+            "VALVES_SET VALUES=0,0,0,0,0,0,0,0,0,0,0\n"
+            "SET_SECOND_PASS\n"
+            "G4 P3000\n", y_pos+1);
+    }
+    
+    std::string layer_end_cmd(int y_start_bed_pos)
+    {
+        return std::format(
+            "G1 Y{}\n"
+            "VALVES_SET VALUES=0,0,0,0,0,0,0,0,0,0,0\n"
+            "G1 Y0\n",
+            y_start_bed_pos - 1);
+    }
 
     std::bitset<8> extractEverySecondBit(const std::bitset<8>& input1, const std::bitset<8>& input2)
     {
@@ -153,34 +215,84 @@ public:
     //last element (i.e. 10000001)
     //                   ^      ^
     //            index [7]    [0]
-    void interlace_and_separate(std::vector<std::bitset<8>> input)
+    void interlace_and_separate(std::vector<std::bitset<8>>& data)
     {
-        if (input.size() % 2 != 0)
+        if (data.size() % 2 != 0)
         {
             throw std::invalid_argument("Input vector must contain an even number of elements");
         }
 
-        std::vector<std::bitset<8>> output(input.begin(), input.end());
-        for (int i; i < 8; i+=2) // process all bits in chunks of 2
+        int s = data.size() / 2;
+
+        std::vector<std::bitset<8>> orig(data.begin(), data.end());
+        int idx = 0;
+        for (int n=0; n < data.size(); n++)
         {
-            for (int n; n < input.size() / 2; n++)
+            for (int i = 0; i < 8; i += 2) // process all bits in chunks of 2
             {
-                output[n].set(i / 2, input1.test(i));
-                result.set(i / 2 + 4, input2.test(i));
+                int idx = n * 8 + i;
+                int v_idx = (idx / 2) / 8;
+                int b_idx = (idx / 2) % 8;
+                data[v_idx][b_idx] = orig[n][i];
+                data[v_idx + s][b_idx] = orig[n][i + 1];
             }
         }
     }
 
-    std::string generate(SprayPattern sp)
+    std::string generate(SprayPattern sp, uint16_t layer_nr=0, uint16_t y_start_of_bed=0)
     {
-        //step through all the entries in the pattern
-        for (auto& i : sp.pattern)
+        //get an idea of the max size of the vector that is need
+        //so we can allocate in one go
+        // one entry will become max: G1 Y0000\nSET_VALVES VALUES=255,255,255,255,255,255,255,255,255,255,255\n
+        int MAX_LEN_ONE_ENTRY = 71;
+        int n = sp.pattern.size() * MAX_LEN_ONE_ENTRY + 1;
+
+        std::string s;
+        s.reserve(n);
+        
+        s += layer_begin_cmd(layer_nr);
+
+        int y_pos = y_start_of_bed;
+        for (auto& p : sp.pattern)
         {
-            //get only every other bit value
-            continue;
+            interlace_and_separate(p);
+            s += "G1 Y" + std::to_string(y_pos++) + '\n';
+            s += "SET_VALVES VALUES=";
+            for (int i=0; i<p.size()/2; i++)
+            {
+                s += std::to_string(p[i].to_ulong()) + ',';
+            }
+            s.pop_back(); //remove last comma
+            s += '\n';
         }
-        //and convert the vector of bitset's to a few byte values
-        return "hello";
+
+        s += layer_return_cmd(y_pos++);
+
+        //and the return leg
+        for (auto it = sp.pattern.rbegin(); it != sp.pattern.rend(); ++it)
+        {
+            //no need to interlace again, already done before
+            s += "G1 Y" + std::to_string(--y_pos) + '\n';
+            s += "SET_VALVES VALUES=";
+            for (int i = (*it).size() / 2; i < (*it).size(); i++)
+            {
+                if (y_pos == 0) //we already returned to base, so we close the valves. This can only happen if the bed_begin_y_coord = 0
+                {
+                    s += "0,0,0,0,0,0,0,0,0,0,0,";
+                }
+                else
+                {
+                    s += std::to_string((*it)[i].to_ulong()) + ',';
+                }
+            }
+            s.pop_back(); // remove last comma
+            s += '\n';
+        }
+
+        // end of layer gcode
+        s += layer_end_cmd(y_pos);
+
+        return s;
     }
 };
 
@@ -193,6 +305,10 @@ public:
 
         };
 
+    void set_layer_nr(int layer_nr)
+    {
+        pattern.set_layer_nr(layer_nr);
+    }
 
     void parse(std::string line){ 
         try

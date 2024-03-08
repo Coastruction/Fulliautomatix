@@ -27,67 +27,116 @@
 #include <memory>
 #include <string_view>
 
-#include "process.h"
+#include <processor/process.h>
 
 namespace plugin::onlyfans
 {
+
+int get_layer_nr(std::string line)
+{
+    // Create a stringstream from the string
+    std::stringstream ss(line);
+
+    // Check if the string starts with ";Layer:"
+    std::string prefix;
+    std::getline(ss, prefix, ':');
+    if (prefix == ";LAYER")
+    {
+        // Extract the number that follows
+        int layerNumber;
+        ss >> layerNumber;
+
+        if (! ss.fail())
+        {
+            // Extraction succeeded, layerNumber contains the extracted integer
+            return layerNumber;
+        }
+        else
+        {
+            // Extraction failed, handle the error
+            return -2;
+        }
+    }
+    else
+    {
+        return -3;
+    }
+   
+  
+}
+ 
 
 std::string filterLines(std::string_view layer)
 {
     constexpr auto pattern = ctll::fixed_string{ "^(;|M106|M107|M123|M710).*$" };
 
     //create our printer
-    //PrintHead ph(5.0, 11, 8);
-    //GCodeParser gp(ph, ph.printhead_size() * 2, 1400);
-
+    PrintHead ph(5.0, 11, 8);
+    GCodeParser gp(ph, ph.printhead_size() * 2, 1400);
 
     // Split the input string to lines
     const std::regex rx{ R"(.*\n?)" };
     auto lines = layer | ranges::views::tokenize(rx);
 
-    //for (const auto& line : lines)
-   // {
-        //gp.parse(line);
-    //}
-
-    // Filter the lines that match the pattern
-    auto matching_lines = lines
-                        | ranges::views::filter(
-                              [&](const std::string& line)
-                              {
-                                  return ctre::match<pattern>(line);
-                              });
-
-    std::string result;
-    for (const auto& matched_line : matching_lines)
+    int layer_nr = -1;
+    for (const auto& line : lines)
     {
-        result += matched_line;
+        std::string line_s = line.str();
+        if (layer_nr < 0) // haven't found the layer key-word yet
+        {
+            layer_nr = get_layer_nr(line_s);
+        }
+        else
+        {
+
+            gp.parse(line);
+        }
     }
-    return result;
+
+    if (layer_nr >= 0)
+    {
+        GCodeGenerator gg;
+        std::string result = gg.generate(gp.pattern, layer_nr);
+        // Filter the lines that match the pattern
+        /* auto matching_lines = lines
+                            | ranges::views::filter(
+                                  [&](const std::string& line)
+                                  {
+                                      return ctre::match<pattern>(line);
+                                  });
+
+
+        std::string result;
+        for (const auto& matched_line : matching_lines)
+        {
+            result += matched_line;
+        }*/
+        return result;
+    }
+    else
+    {
+        return "";
+    }
 }
 
-std::string filterLines_OLD(std::string_view layer)
+std::string get_last_layer(const std::string& input)
 {
-    constexpr auto pattern = ctll::fixed_string{ "^(;|M106|M107|M123|M710).*$" };
-
-    // Split the input string to lines
-    const std::regex rx{ R"(.*\n?)" };
-    auto lines = layer | ranges::views::tokenize(rx);
-
-    // Filter the lines that match the pattern
-    auto matching_lines = lines
-                        | ranges::views::filter(
-                              [&](const std::string& line)
-                              {
-                                  return ctre::match<pattern>(line);
-                              });
-
-    std::string result;
-    for (const auto& matched_line : matching_lines)
+    // Find the last occurrence of ";LAYER:xx"
+    size_t layerPos = input.rfind(";LAYER:");
+    if (layerPos == std::string::npos)
     {
-        result += matched_line;
+        return ""; // Return empty string if ";LAYER:xx" not found
     }
-    return result;
+
+    // Find the keyword ";TIME_ELAPSED:xxx.xxx" after ";LAYER:xx"
+    size_t timePos = input.find(";TIME_ELAPSED:", layerPos);
+    if (timePos == std::string::npos)
+    {
+        return ""; // Return empty string if ";TIME_ELAPSED:xxx.xxx" not found
+    }
+
+    // Extract the text between ";LAYER:xx" and ";TIME_ELAPSED:xxx.xxx"
+    return input.substr(layerPos, timePos - layerPos);
 }
 
 template<class T, class Rsp, class Req>
@@ -115,6 +164,7 @@ struct Generate
             grpc::Status status = grpc::Status::OK;
             try
             {
+                std::string last_layer = get_last_layer(layer);
                 response.set_gcode_word(filterLines(layer));
             }
             catch (const std::exception& e)

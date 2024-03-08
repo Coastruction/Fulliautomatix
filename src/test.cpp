@@ -94,23 +94,28 @@ TEST(basic_exception, get_g_move)
 TEST(basic_g_code_moves, gcodeparser)
 {
     PrintHead ph(5.0, 11, 8);
-    GCodeParser gp(ph, ph.printhead_size()*2, 50);
+    GCodeParser gp(ph, ph.printhead_size()*2, 15);
     gp.parse(";Layer 1");
     gp.parse("M18");
     gp.parse("G0 X0 Y0 E0");
-    gp.parse("G1 X0 Y10 E12.1231");
-    gp.parse("G1 X10 Y10");
-    gp.parse("G1 X10 Y0 E123.12");
+    gp.parse("G1 X0 Y5 E12.1231");
+    gp.parse("G1 X15 Y10");
+    gp.parse("G1 X15 Y0 E123.12");
     gp.parse(";Layer 1");
 
     EXPECT_TRUE(gp.pattern.pattern[0][0].test(0));
     EXPECT_TRUE(gp.pattern.pattern[3][0].test(0));
     EXPECT_FALSE(gp.pattern.pattern[10][0].test(0));
     EXPECT_FALSE(gp.pattern.pattern[3][0].test(1));
-    EXPECT_TRUE(gp.pattern.pattern[3][0].test(2));
-    EXPECT_TRUE(gp.pattern.pattern[5][0].test(2));
+    EXPECT_TRUE(gp.pattern.pattern[3][0].test(3));
+    EXPECT_TRUE(gp.pattern.pattern[5][0].test(3));
 
+    GCodeGenerator gg;
+    auto out = gg.generate(gp.pattern);
+
+    //std::cout << out;
 }
+
 
 TEST(bitset, gcodegenerator)
 { 
@@ -127,11 +132,23 @@ TEST(bitset, gcodegenerator)
     std::vector<std::bitset<8>> result2(2);
     test_data[0] = std::bitset<8>("11010001");
     test_data[1] = std::bitset<8>("00100111");
-    result2[0] = std::bitset<8>("11010011");
-    result2[1] = std::bitset<8>("10000101");
+    result2[0] = std::bitset<8>("00111101");
+    result2[1] = std::bitset<8>("01011000");
     gg.interlace_and_separate(test_data);
     EXPECT_EQ(result2, test_data);
 
+    std::vector<std::bitset<8>> test_data3(4);
+    std::vector<std::bitset<8>> result3(4);
+    test_data3[0] = std::bitset<8>("11010001");
+    test_data3[1] = std::bitset<8>("00100111");
+    test_data3[2] = std::bitset<8>("11011001");
+    test_data3[3] = std::bitset<8>("11111001");
+    result3[0] = std::bitset<8>("00111101");
+    result3[1] = std::bitset<8>("11011101");
+    result3[2] = std::bitset<8>("01011000");
+    result3[3] = std::bitset<8>("11101010");
+    gg.interlace_and_separate(test_data3);
+    EXPECT_EQ(result3, test_data3);
 }
 
 
@@ -148,7 +165,6 @@ TEST(conversion, gcodegenerator)
     
     GCodeGenerator gg;
     auto res = gg.generate(gp.pattern);
-    std::cout << res << '\n';
     EXPECT_TRUE(true);
 }
 
