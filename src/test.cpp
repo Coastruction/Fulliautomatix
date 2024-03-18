@@ -93,8 +93,9 @@ TEST(basic_exception, get_g_move)
 
 TEST(basic_g_code_moves, gcodeparser)
 {
+    uint16_t y_bed_size = 15;
     PrintHead ph(5.0, 11, 8);
-    GCodeParser gp(ph, ph.printhead_size()*2, 15);
+    GCodeParser gp(ph, ph.printhead_size() * 2, y_bed_size);
     gp.parse(";Layer 1");
     gp.parse("M18");
     gp.parse("G0 X0 Y0 E0");
@@ -111,7 +112,7 @@ TEST(basic_g_code_moves, gcodeparser)
     EXPECT_TRUE(gp.pattern.pattern[5][0].test(3));
 
     GCodeGenerator gg;
-    auto out = gg.generate(gp.pattern);
+    auto out = gg.generate(gp.pattern, 0, 0, y_bed_size);
 
     //std::cout << out;
 }

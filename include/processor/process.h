@@ -118,7 +118,6 @@ public:
         return static_cast<int>(y_coord);
     }
 
-    std::string GenerateGCode(){};
     uint16_t get_y_size()
     {
         return pattern.size();
@@ -138,13 +137,13 @@ public:
 class GCodeGenerator
 {
 public:
-    const int Y_INITIAL_POSITION = 92;
+    const int Y_INITIAL_POSITION = 118;
     const int Y_FEED_RATE = 8000;
 
     const int N_NOZZLES = 88;
     const int N_NOZZLES_PER_MANIFOLD = 8;
     const int N_PASSES = 2;
-    const int PRINTABLE_AREA = (880, 1424);
+    const int PRINTABLE_AREA = (880, 1462);
     const int RESOLUTION = N_NOZZLES * N_PASSES;
     const int RESOLUTION_MM = 5;
 
@@ -152,7 +151,7 @@ public:
     {
         return std::format(
             "SET_PRINT_STATS_INFO TOTAL_LAYER={}\n"
-            "G28 X Y SET_FIRST_PASS G4 P3000; wait for servo\n"
+            "G28 X Y SET_FIRST_PASS G4 P3000 ;wait for servo\n"
             "VALVES_SET VALUES=0,0,0,0,0,0,0,0,0,0,0\n"
             "VALVES_ENABLE ; change to VALVES_DISABLE to do run without valves active\n",
             NUMBER_OF_LAYERS);
@@ -168,11 +167,11 @@ public:
     {
         return std::format(
             ";Layer{}\n"
-            "SET_PRINT_STATS_INFO CURRENT_LAYER = {}\n"
+            "SET_PRINT_STATS_INFO CURRENT_LAYER={}\n"
             "SET_FIRST_PASS\n"
             "Z_ONE_LAYER\n"
             "FILL_HOPPER_UNTIL_FULL\n"
-            "PAUSE_PRINTER; wait for button press\n"
+            "PAUSE_PRINTER ;wait for button press\n"
             "DEPOSIT_ONE_LAYER\n", layer_idx+1, layer_idx+1);
     }
     
@@ -181,8 +180,9 @@ public:
         return std::format(
             "G1 Y{}\n"
             "VALVES_SET VALUES=0,0,0,0,0,0,0,0,0,0,0\n"
+            "G1 Y{}\n"
             "SET_SECOND_PASS\n"
-            "G4 P3000\n", y_pos+1);
+            "G4 P3000\n", y_pos, y_pos+1);
     }
     
     std::string layer_end_cmd(int y_start_bed_pos)
@@ -239,7 +239,18 @@ public:
         }
     }
 
-    std::string generate(SprayPattern sp, uint16_t layer_nr=0, uint16_t y_start_of_bed=0)
+    template<std::size_t N>
+    void reverse(std::bitset<N>& b)
+    {
+        for (std::size_t i = 0; i < N / 2; ++i)
+        {
+            bool t = b[i];
+            b[i] = b[N - i - 1];
+            b[N - i - 1] = t;
+        }
+    }
+
+    std::string generate(SprayPattern sp, uint16_t layer_nr=0, uint16_t y_start_of_bed=0, uint16_t bed_length=1400)
     {
         //get an idea of the max size of the vector that is need
         //so we can allocate in one go
@@ -256,10 +267,18 @@ public:
         for (auto& p : sp.pattern)
         {
             interlace_and_separate(p);
-            s += "G1 Y" + std::to_string(y_pos++) + '\n';
-            s += "SET_VALVES VALUES=";
+            if (y_pos == y_start_of_bed)
+            {
+                s += "G1 Y" + std::to_string(y_pos++) + " F8000\n";    //the first time we add the print velocity
+            }
+            else
+            {
+                s += "G1 Y" + std::to_string(y_pos++) + '\n';
+            }
+            s += "VALVES_SET VALUES=";
             for (int i=0; i<p.size()/2; i++)
             {
+                reverse(p[i]);
                 s += std::to_string(p[i].to_ulong()) + ',';
             }
             s.pop_back(); //remove last comma
@@ -273,7 +292,7 @@ public:
         {
             //no need to interlace again, already done before
             s += "G1 Y" + std::to_string(--y_pos) + '\n';
-            s += "SET_VALVES VALUES=";
+            s += "VALVES_SET VALUES=";
             for (int i = (*it).size() / 2; i < (*it).size(); i++)
             {
                 if (y_pos == 0) //we already returned to base, so we close the valves. This can only happen if the bed_begin_y_coord = 0
@@ -282,6 +301,7 @@ public:
                 }
                 else
                 {
+                    reverse((*it)[i]);
                     s += std::to_string((*it)[i].to_ulong()) + ',';
                 }
             }
@@ -352,6 +372,44 @@ public:
     }
 };
 
+/* High level class that manages everything to achieve 
+   a valid, working gcode. */
+class PrintManager
+{
+public:
+    /**
+     *  Creates a PrintHead object according to the provided parameters
+     * @param ph - A PrintHead object
+     * @param y_start_pos - The Y-position of the print head where the bed starts
+     * @param bed_length - The length in mm of the bed. This plus the y_start_pos 
+     * should be equal less than the maximum y-position the print head can reach.
+     * */
+    PrintManager(PrintHead print_head, int y_start_pos, int bed_length)
+        : printhead(print_head)
+        , _y_start_pos(y_start_pos)
+        , _bed_length(bed_length-1)   //substract one, because we need it to stop, close the valves and return 
+        , gcodeparser(printhead, printhead.printhead_size() * 2, _bed_length)
+    {
+
+    }
+
+    std::string generate(uint16_t layer_nr)
+    {
+        return gg.generate(gcodeparser.pattern, layer_nr, _y_start_pos, _bed_length);
+    }
+
+    void parse(std::string line)
+    {
+        gcodeparser.parse(line);
+    }
+
+    PrintHead printhead;
+    int _y_start_pos;
+    int _bed_length;
+    GCodeParser gcodeparser;
+    GCodeGenerator gg;
+
+};
 
 int asdasd(int a)
 {

@@ -72,7 +72,7 @@ std::string filterLines(std::string_view layer)
 
     //create our printer
     PrintHead ph(5.0, 11, 8);
-    GCodeParser gp(ph, ph.printhead_size() * 2, 1400);
+    PrintManager pm(ph, 118, 1462 - 118);
 
     // Split the input string to lines
     const std::regex rx{ R"(.*\n?)" };
@@ -88,30 +88,13 @@ std::string filterLines(std::string_view layer)
         }
         else
         {
-
-            gp.parse(line);
+            pm.parse(line);
         }
     }
 
     if (layer_nr >= 0)
     {
-        GCodeGenerator gg;
-        std::string result = gg.generate(gp.pattern, layer_nr);
-        // Filter the lines that match the pattern
-        /* auto matching_lines = lines
-                            | ranges::views::filter(
-                                  [&](const std::string& line)
-                                  {
-                                      return ctre::match<pattern>(line);
-                                  });
-
-
-        std::string result;
-        for (const auto& matched_line : matching_lines)
-        {
-            result += matched_line;
-        }*/
-        return result;
+        return pm.generate(layer_nr);
     }
     else
     {
