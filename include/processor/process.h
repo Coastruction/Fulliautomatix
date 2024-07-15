@@ -168,11 +168,12 @@ public:
         return std::format(
             ";Layer{}\n"
             "SET_PRINT_STATS_INFO CURRENT_LAYER={}\n"
+            "RESPOND MSG=\"Start layer {}\"\n"
             "SET_FIRST_PASS\n"
             "Z_ONE_LAYER\n"
             "FILL_HOPPER_UNTIL_FULL\n"
             "PAUSE_PRINTER ;wait for button press\n"
-            "DEPOSIT_ONE_LAYER\n", layer_idx+1, layer_idx+1);
+            "DEPOSIT_ONE_LAYER\n", layer_idx + 1, layer_idx + 1,  layer_idx + 1);
     }
     
     std::string layer_return_cmd(int y_pos)
@@ -269,20 +270,24 @@ public:
             interlace_and_separate(p);
             if (y_pos == y_start_of_bed)
             {
-                s += "G1 Y" + std::to_string(y_pos++) + " F8000\n";    //the first time we add the print velocity
+                s += "G1 Y" + std::to_string(y_pos++) + " F6000\n";    //the first time we add the print velocity
             }
             else
             {
                 s += "G1 Y" + std::to_string(y_pos++) + '\n';
             }
-            s += "VALVES_SET VALUES=";
-            for (int i=0; i<p.size()/2; i++)
+
+            if (y_pos % 2 == 0) // only even
             {
-                reverse(p[i]);
-                s += std::to_string(p[i].to_ulong()) + ',';
+                s += "VALVES_SET VALUES=";
+                for (int i = 0; i < p.size() / 2; i++)
+                {
+                    reverse(p[i]);
+                    s += std::to_string(p[i].to_ulong()) + ',';
+                }
+                s.pop_back(); // remove last comma
+                s += '\n';
             }
-            s.pop_back(); //remove last comma
-            s += '\n';
         }
 
         s += layer_return_cmd(y_pos++);
@@ -292,21 +297,25 @@ public:
         {
             //no need to interlace again, already done before
             s += "G1 Y" + std::to_string(--y_pos) + '\n';
-            s += "VALVES_SET VALUES=";
-            for (int i = (*it).size() / 2; i < (*it).size(); i++)
+
+            if (y_pos % 2 == 0) // only even
             {
-                if (y_pos == 0) //we already returned to base, so we close the valves. This can only happen if the bed_begin_y_coord = 0
+                s += "VALVES_SET VALUES=";
+                for (int i = (*it).size() / 2; i < (*it).size(); i++)
                 {
-                    s += "0,0,0,0,0,0,0,0,0,0,0,";
+                    if (y_pos == 0) // we already returned to base, so we close the valves. This can only happen if the bed_begin_y_coord = 0
+                    {
+                        s += "0,0,0,0,0,0,0,0,0,0,0,";
+                    }
+                    else
+                    {
+                        reverse((*it)[i]);
+                        s += std::to_string((*it)[i].to_ulong()) + ',';
+                    }
                 }
-                else
-                {
-                    reverse((*it)[i]);
-                    s += std::to_string((*it)[i].to_ulong()) + ',';
-                }
+                s.pop_back(); // remove last comma
+                s += '\n';
             }
-            s.pop_back(); // remove last comma
-            s += '\n';
         }
 
         // end of layer gcode
