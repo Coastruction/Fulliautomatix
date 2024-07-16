@@ -138,6 +138,9 @@ class GCodeGenerator
 {
 public:
     const int Y_INITIAL_POSITION = 118;
+    const int Y_MAXIMUM_POSITION = 1462;
+    const int X_ZERO_POSITION = 0;
+    const int X_MAXIMUM_POSITION = 1388;
     const int Y_FEED_RATE = 8000;
 
     const int N_NOZZLES = 88;
@@ -169,17 +172,17 @@ public:
             ";Layer{}\n"
             "SET_PRINT_STATS_INFO CURRENT_LAYER={}\n"
             "RESPOND MSG=\"Start layer {}\"\n"
+            "FILL_HOPPER_ASYNC\n"
             "SET_FIRST_PASS\n"
             "Z_ONE_LAYER\n"
-            "FILL_HOPPER_UNTIL_FULL\n"
             "PAUSE_PRINTER ;wait for button press\n"
-            "DEPOSIT_ONE_LAYER\n", layer_idx + 1, layer_idx + 1,  layer_idx + 1);
+            "G1 X{} F6000; deposit material\n", layer_idx + 1, layer_idx + 1,  layer_idx + 1, X_MAXIMUM_POSITION);
     }
     
     std::string layer_return_cmd(int y_pos)
     {
         return std::format(
-            "G1 Y{}\n"
+            "G1 Y{} F6000\n"
             "VALVES_SET VALUES=0,0,0,0,0,0,0,0,0,0,0\n"
             "G1 Y{}\n"
             "SET_SECOND_PASS\n"
@@ -265,20 +268,32 @@ public:
         s += layer_begin_cmd(layer_nr);
 
         int y_pos = y_start_of_bed;
+        int feedspeed = 8460;
+        int last_feedspeed = feedspeed; 
+
         for (auto& p : sp.pattern)
         {
             interlace_and_separate(p);
+            int x_pos = X_MAXIMUM_POSITION - y_pos;
+            if (x_pos < 0)
+            {
+                x_pos = 0;
+            }
+
+            
             if (y_pos == y_start_of_bed)
             {
-                s += "G1 Y" + std::to_string(y_pos++) + " F6000\n";    //the first time we add the print velocity
+                s += "G1 Y" + std::to_string(y_pos++) + " X" + std::to_string(x_pos) + " F" + std::to_string(feedspeed) + "\n"; // the first time we add the print velocity
             }
             else
             {
-                s += "G1 Y" + std::to_string(y_pos++) + '\n';
+                //calculate feedspeed
+                s += "G1 Y" + std::to_string(y_pos++) + " X" + std::to_string(x_pos) + " F" + std::to_string(feedspeed) + '\n';
+                if (x_pos == 0) feedspeed = 6000; // when X axis is not moving simulatenously, we can use the normal feedspeed again
             }
 
             if (y_pos % 2 == 0) // only even
-            {
+            { 
                 s += "VALVES_SET VALUES=";
                 for (int i = 0; i < p.size() / 2; i++)
                 {
