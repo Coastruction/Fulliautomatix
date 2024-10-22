@@ -185,6 +185,7 @@ public:
             "G1 Y{} F6000\n"
             "VALVES_SET VALUES=0,0,0,0,0,0,0,0,0,0,0\n"
             "G1 Y{}\n"
+            "FILL_HOPPER_ASYNC\n"  
             "SET_SECOND_PASS\n"
             "G4 P3000\n", y_pos, y_pos+1);
     }
