@@ -41,11 +41,12 @@ class OnlyFans(BackendPlugin):
         return any([extr.getProperty(f"{constants.settings_prefix}_onlyfans_enabled", "value") for extr in machine_manager.activeMachine.extruderList if extr.hasProperty(f"{constants.settings_prefix}_onlyfans_enabled", "value")])
 
     def getPort(self):
-        return super().getPort() if not self.isDebug() else int(os.environ["CURAENGINE_ONLYFANS_PORT"])
+        #return 7856  # enable this line instead of the next to use it with a fixed port (for debugging)
+        return super().getPort() if not self.isDebug() else int(os.environ["CURAENGINE_ONLYFANS_PORT"])  #use this for release
 
     def isDebug(self):
-        # return not hasattr(sys, "frozen") and os.environ.get("CURAENGINE_ONLYFANS_PORT", None) is not None
-        return os.environ.get("CURAENGINE_ONLYFANS_PORT", None) is not None
+        return not hasattr(sys, "frozen") and os.environ.get("CURAENGINE_ONLYFANS_PORT", None) is not None   # use this for release
+        # return os.environ.get("CURAENGINE_ONLYFANS_PORT", None) is not None  # use this line for debugging
 
     def start(self):
         if not self.isDebug():

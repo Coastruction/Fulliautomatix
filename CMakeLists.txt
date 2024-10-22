@@ -41,6 +41,9 @@ target_include_directories(curaengine_onlyfans_lib
 add_executable(curaengine_onlyfans src/main.cpp)
 use_threads(curaengine_onlyfans)
 target_link_libraries(curaengine_onlyfans PUBLIC curaengine_onlyfans_lib)
+add_custom_command(TARGET curaengine_onlyfans 
+                   POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:curaengine_onlyfans> ${PROJECT_SOURCE_DIR}"\\CuraEngineOnlyFans\\x86_64\\Windows")
 
 enable_testing()
 
