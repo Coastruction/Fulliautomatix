@@ -3,18 +3,17 @@
 
 #include "gcode.h"
 
-
-#include <filesystem>
+#include <bitset>
 #include <cmath>
+#include <exception>
+#include <filesystem>
+#include <format>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <exception>
-#include <bitset>
-#include <format>
-    
+
 const int x_size = 880 * 2; // we use a resoluation of 0.5 mm, hence the times two.
 const int y_size = 1330 * 2; // TODO make this based on the Cura print bed output (how to get this setting??)
 
@@ -23,16 +22,15 @@ class PrintHead
 {
 public:
     /**
-    *  Creates a PrintHead object according to the provided parameters
-    * @param valve_spacing - Distance between the centers of two valves
-    * @param nr_of_blocks - In how many blocks the valves are distrubuted
-    * @param nozzles_per_bloc - As the name suggests
-    * */
+     *  Creates a PrintHead object according to the provided parameters
+     * @param valve_spacing - Distance between the centers of two valves
+     * @param nr_of_blocks - In how many blocks the valves are distrubuted
+     * @param nozzles_per_bloc - As the name suggests
+     * */
     PrintHead(float valve_spacing, uint16_t nr_of_blocks, uint16_t nozzles_per_block)
         : _valve_spacing(valve_spacing)
         , _nr_of_blocks(nr_of_blocks)
-        , _nozzles_per_block(nozzles_per_block)
-    {};
+        , _nozzles_per_block(nozzles_per_block){};
 
     /* returns the index and the offset of a coordinate, based on the interval */
     void get_block_indices(float x_coordinate, int& block_index, int& block_offset)
@@ -68,10 +66,9 @@ public:
     SprayPattern(PrintHead ph, uint16_t y_bed_size, uint16_t nr_passes = 2)
         : _ph(ph)
         , _spray_pattern_data_width(std::ceil(_ph.nr_of_nozzles() * nr_passes / 8.0))
-        , pattern(y_bed_size, std::vector<std::bitset<8>>(_spray_pattern_data_width))
-    {
-        
-    };
+        , pattern(y_bed_size, std::vector<std::bitset<8>>(_spray_pattern_data_width)){
+
+        };
 
     void set_layer_nr(int layer_nr)
     {
@@ -112,7 +109,7 @@ public:
         }
     }
 
-    //for now just round off the y value
+    // for now just round off the y value
     uint16_t get_y_index(float y_coord)
     {
         return static_cast<int>(y_coord);
@@ -162,8 +159,7 @@ public:
 
     std::string print_end_cmd(int NUMBER_OF_LAYERS)
     {
-        return std::format(
-            "; total layers count = {}\n", NUMBER_OF_LAYERS);
+        return std::format("; total layers count = {}\n", NUMBER_OF_LAYERS);
     }
 
     std::string layer_begin_cmd(int layer_idx)
@@ -176,20 +172,27 @@ public:
             "SET_FIRST_PASS\n"
             "Z_ONE_LAYER\n"
             "PAUSE_PRINTER ;wait for button press\n"
-            "G1 X{} F6000; deposit material\n", layer_idx + 1, layer_idx + 1,  layer_idx + 1, X_MAXIMUM_POSITION);
+            "G1 X{} F6000; deposit material\n",
+            layer_idx + 1,
+            layer_idx + 1,
+            layer_idx + 1,
+            X_MAXIMUM_POSITION);
     }
-    
-    std::string layer_return_cmd(int y_pos)
+
+    std::string layer_return_cmd(int feedspeed, int y_pos)
     {
         return std::format(
-            "G1 Y{} F6000\n"
+            "G1 Y{} F{}\n"
             "VALVES_SET VALUES=0,0,0,0,0,0,0,0,0,0,0\n"
             "G1 Y{}\n"
-            "FILL_HOPPER_ASYNC\n"  
+            "FILL_HOPPER_ASYNC\n"
             "SET_SECOND_PASS\n"
-            "G4 P3000\n", y_pos, y_pos+1);
+            "G4 P3000\n",
+            y_pos,
+            feedspeed,
+            y_pos + 1);
     }
-    
+
     std::string layer_end_cmd(int y_start_bed_pos)
     {
         return std::format(
@@ -212,14 +215,14 @@ public:
         return result;
     }
 
-    //takes a vector of bitset<8> with an even number of elements
-    //and moves all even bits to the first half of the elements,
-    //and all uneven bits to the last half of the elements
-    //so 1010.1010 1010.1010 would become 0000.0000 1111.1111
-    //note that the bitset indexing when written out starts at the 
-    //last element (i.e. 10000001)
-    //                   ^      ^
-    //            index [7]    [0]
+    // takes a vector of bitset<8> with an even number of elements
+    // and moves all even bits to the first half of the elements,
+    // and all uneven bits to the last half of the elements
+    // so 1010.1010 1010.1010 would become 0000.0000 1111.1111
+    // note that the bitset indexing when written out starts at the
+    // last element (i.e. 10000001)
+    //                    ^      ^
+    //             index [7]    [0]
     void interlace_and_separate(std::vector<std::bitset<8>>& data)
     {
         if (data.size() % 2 != 0)
@@ -231,7 +234,7 @@ public:
 
         std::vector<std::bitset<8>> orig(data.begin(), data.end());
         int idx = 0;
-        for (int n=0; n < data.size(); n++)
+        for (int n = 0; n < data.size(); n++)
         {
             for (int i = 0; i < 8; i += 2) // process all bits in chunks of 2
             {
@@ -255,22 +258,23 @@ public:
         }
     }
 
-    std::string generate(SprayPattern sp, uint16_t layer_nr=0, uint16_t y_start_of_bed=0, uint16_t bed_length=1400)
+    std::string generate(SprayPattern sp, uint16_t layer_nr = 0, uint16_t y_start_of_bed = 0, uint16_t bed_length = 1400)
     {
-        //get an idea of the max size of the vector that is need
-        //so we can allocate in one go
-        // one entry will become max: G1 Y0000\nSET_VALVES VALUES=255,255,255,255,255,255,255,255,255,255,255\n
+        // get an idea of the max size of the vector that is need
+        // so we can allocate in one go
+        //  one entry will become max: G1 Y0000\nSET_VALVES VALUES=255,255,255,255,255,255,255,255,255,255,255\n
         int MAX_LEN_ONE_ENTRY = 71;
         int n = sp.pattern.size() * MAX_LEN_ONE_ENTRY + 1;
 
         std::string s;
         s.reserve(n);
-        
+
         s += layer_begin_cmd(layer_nr);
 
         int y_pos = y_start_of_bed;
-        int feedspeed = 8460;
-        int last_feedspeed = feedspeed; 
+        int base_feedspeed = 5454;
+        int joint_feedspeed = 7691; // was 8460, we reduce by 10% ->  7691 (becasue it is inversed)
+        int last_feedspeed = feedspeed;
 
         for (auto& p : sp.pattern)
         {
@@ -281,20 +285,25 @@ public:
                 x_pos = 0;
             }
 
-            
+
             if (y_pos == y_start_of_bed)
             {
-                s += "G1 Y" + std::to_string(y_pos++) + " X" + std::to_string(x_pos) + " F" + std::to_string(feedspeed) + "\n"; // the first time we add the print velocity
+                s += "G1 Y" + std::to_string(y_pos++) + " X" + std::to_string(x_pos) + " F" + std::to_string(joint_feedspeed) + "\n"; // the first time we add the print velocity
             }
             else
             {
-                //calculate feedspeed
-                s += "G1 Y" + std::to_string(y_pos++) + " X" + std::to_string(x_pos) + " F" + std::to_string(feedspeed) + '\n';
-                if (x_pos == 0) feedspeed = 6000; // when X axis is not moving simulatenously, we can use the normal feedspeed again
+                if (x_pos == 0) // hopper is at the end, we move only the printhead
+                {
+                    s += "G1 Y" + std::to_string(y_pos++) + " X" + std::to_string(x_pos) + " F" + std::to_string(base_feedspeed) + '\n';
+                }
+                else
+                {
+                    s += "G1 Y" + std::to_string(y_pos++) + " X" + std::to_string(x_pos) + " F" + std::to_string(joint_feedspeed) + '\n';
+                }
             }
 
             if (y_pos % 2 == 0) // only even
-            { 
+            {
                 s += "VALVES_SET VALUES=";
                 for (int i = 0; i < p.size() / 2; i++)
                 {
@@ -306,12 +315,12 @@ public:
             }
         }
 
-        s += layer_return_cmd(y_pos++);
+        s += layer_return_cmd(base_feedspeed, y_pos++);
 
-        //and the return leg
+        // and the return leg
         for (auto it = sp.pattern.rbegin(); it != sp.pattern.rend(); ++it)
         {
-            //no need to interlace again, already done before
+            // no need to interlace again, already done before
             s += "G1 Y" + std::to_string(--y_pos) + '\n';
 
             if (y_pos % 2 == 0) // only even
@@ -355,7 +364,8 @@ public:
         pattern.set_layer_nr(layer_nr);
     }
 
-    void parse(std::string line){ 
+    void parse(std::string line)
+    {
         try
         {
             auto current_move = get_g_move(line);
@@ -366,15 +376,13 @@ public:
                     pattern.add_spray_line(prev_move, current_move);
                 }
             }
-            first_move_processed = true; 
+            first_move_processed = true;
             prev_move = current_move;
-            
         }
         catch (std::invalid_argument e)
         {
-            //not a valid G-code command aparently
+            // not a valid G-code command aparently
         }
-
     }
     bool first_move_processed = false;
     SprayPattern pattern;
@@ -397,7 +405,7 @@ public:
     }
 };
 
-/* High level class that manages everything to achieve 
+/* High level class that manages everything to achieve
    a valid, working gcode. */
 class PrintManager
 {
@@ -406,16 +414,15 @@ public:
      *  Creates a PrintHead object according to the provided parameters
      * @param ph - A PrintHead object
      * @param y_start_pos - The Y-position of the print head where the bed starts
-     * @param bed_length - The length in mm of the bed. This plus the y_start_pos 
+     * @param bed_length - The length in mm of the bed. This plus the y_start_pos
      * should be equal less than the maximum y-position the print head can reach.
      * */
     PrintManager(PrintHead print_head, int y_start_pos, int bed_length)
         : printhead(print_head)
         , _y_start_pos(y_start_pos)
-        , _bed_length(bed_length-1)   //substract one, because we need it to stop, close the valves and return 
+        , _bed_length(bed_length - 1) // substract one, because we need it to stop, close the valves and return
         , gcodeparser(printhead, printhead.printhead_size() * 2, _bed_length)
     {
-
     }
 
     std::string generate(uint16_t layer_nr)
@@ -433,7 +440,6 @@ public:
     int _bed_length;
     GCodeParser gcodeparser;
     GCodeGenerator gg;
-
 };
 
 int asdasd(int a)
@@ -455,7 +461,7 @@ int asdasd(int a)
         move is then mapped into our output matrix based on the start and end-position of
         the extrusion move.
      4. the output matrix is converted to G-code that our printer understands.
-     */ 
+     */
 
 
     const int number_of_nozzles = 88;
@@ -490,11 +496,11 @@ int asdasd(int a)
 
             if (current_cmd.isExtrusionMove())
             {
-                //add_valve_output(last_cmd, current_cmd, V_OUT, number_of_nozzles);
+                // add_valve_output(last_cmd, current_cmd, V_OUT, number_of_nozzles);
             }
         }
     }
-     
+
     // Close the file
     file.close();
 
